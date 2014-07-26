@@ -16,7 +16,6 @@ def fetch_mails(infos, db):
     if 'in_port' not in infos: return False
     if 'username' not in infos: return False
     if 'password' not in infos: return False
-    print infos
 
     conn = imaplib.IMAP4(infos['in_server'], infos['in_port'])
     conn.login(infos['username'], infos['password'])
