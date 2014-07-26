@@ -12,10 +12,11 @@ import email.header
 import codecs
 
 def fetch_mails(infos, db):
-    if 'server' not in infos: return False
+    if 'in_server' not in infos: return False
     if 'in_port' not in infos: return False
     if 'username' not in infos: return False
     if 'password' not in infos: return False
+    print infos
 
     conn = imaplib.IMAP4(infos['in_server'], infos['in_port'])
     conn.login(infos['username'], infos['password'])
@@ -23,9 +24,7 @@ def fetch_mails(infos, db):
     typ, data = conn.search(None,'(NOT SEEN)')
     for num in data[0].split():
         typ, content = conn.fetch(num,'(RFC822)')
-        #typ, header = conn.fetch(num,'(BODY[HEADER] BODY[TEXT])')
         header = email.parser.HeaderParser().parsestr(content[0][1])
-        # keys = ['Received...', 'Message-ID', 'Date', 'From', 'User-Agent', 'MIME-Version', 'To', 'Subject', 'Content-Type', 'Content-Transfer-Encoding', 'X-Originating-IP', 'X-Spam-Score', 'X-Spam-Report']
         from_tuple = email.utils.parseaddr(header['From'])
         mail = {'date': dateutil.parser.parse(header['Date']),
                 'name': from_tuple[0],
