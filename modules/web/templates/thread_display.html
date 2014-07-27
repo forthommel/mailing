@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<h3>{%trans%}List of ongoing threads{%endtrans%}</h3>
+{% for thr in Threads.query.all() %}
+<li /> <b>{{ thr.title }}</b>
+{% if Unsubscriptions.query.filter_by(thread_id=thr.id, account_id=current_user.id).first()==None %}
+<a href="/threads/unsubscribe/{{ thr.id }}">&hearts;</a>
+{% else %}
+<a href="/threads/subscribe/{{ thr.id }}">&#9785;</a>
+{% endif %}
+<ul>
+  {% for mail in Mails.query.filter_by(thread_id=thr.id) %}
+  <li /> {{ mail.account.name }} &#60;{{ mail.account.email }}&#62; on {{ mail.date_arrival|datetime }}
+  {% endfor %}
+</ul>
+{% endfor %}
+<p> <a href="/profile">{%trans%}Back{%endtrans%}</a></p>
+{% endblock %}
