@@ -31,7 +31,7 @@ class db:
         if 'content' not in infos: return False
         if 'date' not in infos: return False
         c = self.conn.cursor()
-        c.execute('SELECT id,name FROM accounts WHERE email="%s"' % infos['email'])
+        c.execute('SELECT id,name FROM user WHERE email="%s"' % infos['email'])
         ent = c.fetchone()
         if ent==None or len(ent)==0: # user in not registered in the system
             print '=> Unknown e-mail (%s) sent a mail on the list on %s' % (infos['email'], infos['date'])
@@ -45,13 +45,13 @@ class db:
         if 'email' not in infos: return False
         if 'name' not in infos: return False
         c = self.conn.cursor()
-        c.execute('SELECT id,name FROM accounts WHERE email="%s"' % infos['email'])
+        c.execute('SELECT id,name FROM user WHERE email="%s"' % infos['email'])
         ent = c.fetchone()
         if ent==None or len(ent)==0: # user is not yet in the database
             if 'max_priority' in infos:
-                self.conn.cursor().execute('''INSERT INTO accounts(email,name,max_priority) VALUES (?, ?, ?)''', (infos['email'], infos['name'], infos['max_priority']))
+                self.conn.cursor().execute('''INSERT INTO user(email,name,max_priority) VALUES (?, ?, ?)''', (infos['email'], infos['name'], infos['max_priority']))
             else:
-                self.conn.cursor().execute('''INSERT INTO accounts(email,name) VALUES (?, ?)''', (infos['email'], infos['name']))
+                self.conn.cursor().execute('''INSERT INTO user(email,name) VALUES (?, ?)''', (infos['email'], infos['name']))
             self.conn.commit()
             print '=> User "%s" with e-mail address "%s" was successfully added to the database!' % (infos['name'], infos['email'])
             return True
@@ -60,7 +60,7 @@ class db:
 
     def check_user_password(self, mail_, password_):
         c = self.conn.cursor()
-        c.execute('SELECT count(*) FROM accounts WHERE mail=? AND password=?', (mail_, password_))
+        c.execute('SELECT count(*) FROM user WHERE mail=? AND password=?', (mail_, password_))
         ent = c.fetchone()
         if ent==None or len(ent)==0: # authentication failed
             return False
@@ -68,7 +68,7 @@ class db:
 
     def get_salted_user_password(self, mail_):
         c = self.conn.cursor()
-        c.execute('SELECT password FROM accounts WHERE mail=?', (mail_))
+        c.execute('SELECT password FROM user WHERE mail=?', (mail_))
         ent = c.fetchone()
         if ent==None or len(ent)==0: # authentication failed
             return None
@@ -79,20 +79,20 @@ class db:
         c = self.conn.cursor()
         priorities = {1: [], 2: [], 3: []}
 
-        for account in c.execute('''SELECT id,email,max_priority FROM accounts ORDER BY max_priority'''):
+        for account in c.execute('''SELECT id,email,max_priority FROM user ORDER BY max_priority'''):
             account_dict = {'id': account[0], 'email': account[1]}
             if account_dict not in priorities[account[2]]:
                 priorities[account[2]].append(account_dict)
 
         for mail in c.execute('''SELECT buffer.id,
                                         buffer.date_arrival,
-                                        accounts.email,
-                                        accounts.name,
+                                        user.email,
+                                        user.name,
                                         buffer.priority,
                                         buffer.subject,
                                         buffer.content
-                                 FROM buffer,accounts
-                                 WHERE buffer.account_id==accounts.id'''):
+                                 FROM buffer,user
+                                 WHERE buffer.account_id==user.id'''):
             mail_id, arrival, email_from, name_from, mail_priority, mail_subject, mail_content = mail
             mail_priority = int(mail_priority)
             for account in priorities[mail_priority]:
@@ -184,13 +184,15 @@ class db:
                      priority INTEGER DEFAULT 3,
                      subject TEXT,
                      content TEXT)''')
-        c.execute('''CREATE TABLE accounts
+        c.execute('''CREATE TABLE user
                     (id INTEGER PRIMARY KEY,
                      email TEXT,
                      password TEXT,
                      name TEXT,
                      max_priority INTEGER DEFAULT 3,
-                     date_creation DATETIME)''')
+                     reset_password_token TEXT,
+                     confirmed_at DATETIME,
+                     active INTEGER)''')
         c.execute('''CREATE TABLE threads
                     (id INTEGER PRIMARY KEY,
                      title TEXT,
