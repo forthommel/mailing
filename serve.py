@@ -36,9 +36,9 @@ def main(argv):
         USER_LOGIN_TEMPLATE = 'login_form.html'
         USER_REGISTER_TEMPLATE = 'login_form.html'
 
-    database_mails = mails.mails(config.get('general', 'mails_database_location'))
+        BABEL_DEFAULT_LOCALE = 'fr'
 
-    app = create_app(database_mails, ConfigClass)
+    app = create_app(ConfigClass)
     app.run(host='0.0.0.0', port=5000, debug=True)
 
 if __name__=='__main__':
