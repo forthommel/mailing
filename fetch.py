@@ -9,14 +9,15 @@
 import argparse
 import ConfigParser
 
-from modules.dbutil import db
+from modules.dbutil import users, mails
 from modules.mailutil import read, write
 
 def main(argv):
-    database = db.db('mails.db')
     config = ConfigParser.ConfigParser()
     config.read(argv.config)
 
+    database_users = users.users(config.get('general', 'users_database_location'))
+    database_mails = mails.mails(config.get('general', 'mails_database_location'))
     infos = {'username':         config.get('mailaccount', 'incoming_username'),
              'out_username':     config.get('mailaccount', 'outgoing_username'),
              'password':         config.get('mailaccount', 'password'),
@@ -27,11 +28,10 @@ def main(argv):
              'out_port':         config.get('mailserver', 'outgoing_port')}
 
     me = {'name': 'Laurent Forthomme', 'email':'forthomme@apinc.org'}
-    database.add_user(me)
+    database_users.add_user(me)
 
-    read.fetch_mails(infos, database)
-    write.send_mails_in_buffer(infos, database)
-
+    read.fetch_mails(infos, database_mails, database_users)
+    write.send_mails_in_buffer(infos, database_mails, database_users)
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='Process checking the arrival of new mails in the list')

@@ -11,7 +11,7 @@ import email.header
 #import quopri
 import codecs
 
-def fetch_mails(infos, db):
+def fetch_mails(infos, db_mails, db_users):
     if 'in_server' not in infos: return False
     if 'in_port' not in infos: return False
     if 'username' not in infos: return False
@@ -32,7 +32,7 @@ def fetch_mails(infos, db):
                 'content': u''}
 
         mail['content'] = email.header.decode_header(content[0][1])[0][0]
-        if not db.add_mail_in_buffer(mail): # mail is marked as not seen, since the user sending it was not identified
+        if not db_mails.add_mail_in_buffer(mail, db_users): # mail is marked as not seen, since the user sending it was not identified
             typ, data = conn.store(num,'-FLAGS','\\Seen')
     return True
             

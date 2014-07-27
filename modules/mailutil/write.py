@@ -11,7 +11,7 @@ import mimetools
 def send_registration_confirmation(email, name=None, registration_code=None):
     print 'aa'
 
-def send_mails_in_buffer(server_infos, db):
+def send_mails_in_buffer(server_infos, db_mails, db_users):
     if 'out_server' not in server_infos: return False
     if 'out_port' not in server_infos: return False
     if 'username' not in server_infos: return False
@@ -21,11 +21,11 @@ def send_mails_in_buffer(server_infos, db):
     if 'reply_to_address' not in server_infos:
         server_infos['reply_to_address'] = None
 
-    for mail in db.get_mails_in_buffer():
+    for mail in db_mails.get_mails_in_buffer(db_users):
         email_from = formataddr((mail['from_name'], mail['from_email']))
         #send_one_mail(server_infos, email_from=email_from, email_to=mail['to'], subject=mail['subject'], content=mail['content'], date=mail['date'])
         if send_one_mail(server_infos, email_from=email_from, email_to=mail['to'], content=mail['content'], reply_to=server_infos['reply_to_address']):
-            db.mark_mail_as_sent(mail['id'])
+            db_mails.mark_mail_as_sent(mail['id'])
     
 def send_one_mail(server_infos, email_from, email_to, content, reply_to=None):
     server = smtplib.SMTP(server_infos['out_server'], server_infos['out_port'])
