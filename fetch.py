@@ -26,11 +26,10 @@ def main(argv):
              'out_server':       config.get('mailserver', 'outgoing_host'),
              'out_port':         config.get('mailserver', 'outgoing_port')}
 
-    me = {'name': 'Laurent Forthomme', 'email':'forthomme@apinc.org'}
-    database.add_user(me)
-
     read.fetch_mails(infos, database)
-    write.send_mails_in_buffer(infos, database)
+    if database.buffer_size():
+        writer = write.write(infos)
+        writer.send_mails_in_buffer(database)
 
 
 if __name__=='__main__':

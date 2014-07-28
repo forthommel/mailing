@@ -1,12 +1,15 @@
 from flask import Flask, flash, redirect, render_template, render_template_string, request, url_for
-from flask.ext.babel import Babel, format_datetime
+from flask.ext.babel import Babel, format_datetime, gettext
 from flask.ext.mail import Mail
 from flask.ext.sqlalchemy import SQLAlchemy
 from flask.ext.user import current_user, login_required, UserManager, UserMixin, SQLAlchemyAdapter
 
 from sqlalchemy.orm import exc
+import email
+import html2text
 
 import modules.dbutil.mails
+#from modules.web.db_structure import User, Threads, Unsubscriptions ##FIXME how to implement this ?
 
 def create_app(ConfigClass, test_config=None):                   # For automated tests
     # Setup Flask and read config from ConfigClass defined above
@@ -49,6 +52,7 @@ def create_app(ConfigClass, test_config=None):                   # For automated
         id = db.Column(db.Integer, primary_key=True)
         title = db.Column(db.String(50), nullable=False, unique=True)
         date_creation = db.Column(db.DateTime())
+        priority = db.Column(db.Integer, nullable=False, default=3)
 
         def __repr__(self):
             return '<Thread %r created on %s>' % (self.title, self.date_creation)
@@ -57,7 +61,6 @@ def create_app(ConfigClass, test_config=None):                   # For automated
         id = db.Column(db.Integer, primary_key=True)
         thread_id = db.Column(db.Integer, db.ForeignKey('threads.id'), nullable=False)
         account_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-        priority = db.Column(db.Integer, nullable=False, default=3)
         content = db.Column(db.String(50), nullable=False, unique=True)
         date_arrival = db.Column(db.DateTime())
 
@@ -83,6 +86,27 @@ def create_app(ConfigClass, test_config=None):                   # For automated
     db_adapter = SQLAlchemyAdapter(db, User)        # Select database adapter
     user_manager = UserManager(db_adapter, app)     # Init Flask-User and bind to app
 
+    @app.template_filter('extract_mail')
+    def extract_mail(mime_content):
+        #msg = email.message_from_string(unicode(mime_content).encode('utf-8'))
+        msg = email.message_from_string(mime_content.encode('utf-8'))
+        out = u''
+        for part in msg.walk():
+            # each part is a either non-multipart, or another multipart message
+            content_type = part.get_content_type()
+            if part.is_multipart():
+                for sp in part.get_payload():
+                    out += html2text.html2text(sp.get_payload().decode('utf-8'))+'<br />'
+
+            elif content_type=="text/plain":
+                out += part.get_payload().decode('utf-8')+'<br />'
+                #out += part.get_payload().replace('\r', '<br/>')
+            else:
+                out += html2text.html2text(part.get_payload().decode('utf-8'))
+                #out += part.get_payload().decode('utf-8')
+        return out.replace('\r', '<br />')
+
+
     @app.template_filter('datetime')
     def the_format_datetime(value, format='medium'):
         if format == 'full':
@@ -103,44 +127,47 @@ def create_app(ConfigClass, test_config=None):                   # For automated
     @app.route('/profile')
     @login_required
     def profile_page():
-        return render_template_string("""
-            {% extends "base.html" %}
-            {% block content %}
-                <h2>{%trans%}Profile Page{%endtrans%}</h2>
-                <p> {%trans%}Hello{%endtrans%} {{ current_user.name or current_user.email }},</p>
-                <p> <a href="{{ url_for('user.change_password') }}">{%trans%}Change password{%endtrans%}</a></p>
-                <p> <a href="/threads">{%trans%}List all threads{%endtrans%}</a></p>
-                <p> <a href="{{ url_for('user.logout') }}?next={{ url_for('user.login') }}">{%trans%}Sign out{%endtrans%}</a></p>
-            {% endblock %}
-            """)
+        return render_template('profile_page.html')
 
     @app.route('/threads/unsubscribe/<thread_id>')
     @login_required
     def unsubscribe_thread(thread_id=None):
         if len(db.session.query(Unsubscriptions).filter_by(account_id=current_user.id, thread_id=thread_id).all())!=0:
-            flash('''You are already unsubscribed from thread <b>%s</b>''' % Threads.query.filter_by(id=thread_id).first().title, 'error')
+            flash(gettext('You are already unsubscribed from thread <b>%s</b>' % Threads.query.filter_by(id=thread_id).first().title), 'error')
         else:
             uns = Unsubscriptions(current_user.id, thread_id)
             db.session.add(uns)
             db.session.commit()
-            flash('''You are now unsubscribed from thread <b>%s</b>''' % Threads.query.filter_by(id=thread_id).first().title, 'success')
+            flash(gettext('You are now unsubscribed from thread <b>%s</b>' % Threads.query.filter_by(id=thread_id).first().title), 'success')
         return render_template("thread_display.html", Threads=Threads, Mails=Mails, Unsubscriptions=Unsubscriptions)
 
     @app.route('/threads/subscribe/<thread_id>')
     @login_required
     def subscribe_thread(thread_id=None):
         try:
-            for ent in db.session.query(Unsubscriptions).filter_by(account_id=current_user.id, thread_id=thread_id).all():
+            unsub = db.session.query(Unsubscriptions).filter_by(account_id=current_user.id, thread_id=thread_id).all()
+            if len(unsub)<1:
+                raise exc.NoResultFound
+            for ent in unsub:
                 db.session.delete(ent)
                 db.session.commit()
-            flash('You are now subscribed to the thread <b>%s</b>' % Threads.query.filter_by(id=thread_id).first().title, 'success')
+            flash(gettext('You are now subscribed to the thread <b>%s</b>' % Threads.query.filter_by(id=thread_id).first().title), 'success')
         except exc.NoResultFound:
-            flash('You are already subscribed to the thread <b>%s</b>' % Threads.query.filter_by(id=thread_id).first().title, 'error')
+            flash(gettext('You are already subscribed to the thread <b>%s</b>' % Threads.query.filter_by(id=thread_id).first().title), 'error')
         return render_template("thread_display.html", Threads=Threads, Mails=Mails, Unsubscriptions=Unsubscriptions)
 
     @app.route('/threads')
     @login_required
     def list_threads():
         return render_template("thread_display.html", Threads=Threads, Mails=Mails, Unsubscriptions=Unsubscriptions)
+
+    @app.route('/mail/<mail_id>')
+    @login_required
+    def show_mail(mail_id=None):
+        mails = db.session.query(Mails).filter_by(id=mail_id).all()
+        if len(mails)!=1:
+            flash(gettext('The mail with id %i was not found in the database' % int(mail_id)), 'error')
+            return render_template("mail_display.html", mail=None)
+        return render_template("mail_display.html", mail=mails[0])
 
     return app

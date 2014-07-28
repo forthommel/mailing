@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+{% if mail %}
+<h3>{{ mail.thread.title }}</h3>
+<p>
+  {%trans%}Sent on{%endtrans%} {{ mail.date_arrival|datetime }} {%trans%}by{%endtrans%} {{ mail.account.name }} &#60;{{ mail.account.email }}&#62;
+</p>
+{% autoescape false%}
+{{ mail.content|extract_mail }}
+{% endautoescape %}
+{% endif %}
+<p> <a href="/threads">{%trans%}Back{%endtrans%}</a></p>
+{% endblock %}

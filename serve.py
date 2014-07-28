@@ -12,17 +12,17 @@ def main(argv):
     # Use a Class-based config to avoid needing a 2nd file
     class ConfigClass(object):
         # Configure Flask
-        SECRET_KEY = 'THIS IS AN INSECURE SECRET'               # Change this for production!!!
-        SQLALCHEMY_DATABASE_URI = 'sqlite:///../../'+config.get('general', 'mails_database_location')+'?check_same_thread=False'
+        SECRET_KEY = 'THIS IS AN INSECURE SECRET' # Change this for production!!!
+        SQLALCHEMY_DATABASE_URI = 'sqlite:///../../'+config.get('general', 'mails_database_location')
         CSRF_ENABLED = True
     
         # Configure Flask-Mail -- Required for Confirm email and Forgot password features
-        MAIL_SERVER   = config.get('mailserver', 'outgoing_host')
-        MAIL_PORT     = config.get('mailserver', 'outgoing_port')
+        MAIL_SERVER   = config.get('mail-server', 'outgoing_host')
+        MAIL_PORT     = config.get('mail-server', 'outgoing_port')
         MAIL_USE_SSL  = False
-        MAIL_USERNAME = config.get('mailaccount', 'outgoing_username')
-        MAIL_PASSWORD = config.get('mailaccount', 'password')
-        MAIL_DEFAULT_SENDER = config.get('mailaccount', 'reply_to_address')
+        MAIL_USERNAME = config.get('mail-account', 'outgoing_username')
+        MAIL_PASSWORD = config.get('mail-account', 'password')
+        MAIL_DEFAULT_SENDER = config.get('mail-account', 'reply_to_address')
         
         # Configure Flask-User
         USER_ENABLE_USERNAME = False
@@ -37,6 +37,8 @@ def main(argv):
         USER_REGISTER_TEMPLATE = 'login_form.html'
 
         BABEL_DEFAULT_LOCALE = 'fr'
+
+        SITE_NAME = config.get('general', 'site_name')
 
     app = create_app(ConfigClass)
     app.run(host='0.0.0.0', port=5000, debug=True)

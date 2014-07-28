@@ -30,28 +30,40 @@ class db:
         if 'email' not in infos: return False
         if 'content' not in infos: return False
         if 'date' not in infos: return False
+        if 'subject' not in infos: return False
+        if 'priority' not in infos: return False
         c = self.conn.cursor()
         c.execute('SELECT id,name FROM user WHERE email="%s"' % infos['email'])
         ent = c.fetchone()
+
         if ent==None or len(ent)==0: # user in not registered in the system
             print '=> Unknown e-mail (%s) sent a mail on the list on %s' % (infos['email'], infos['date'])
             return False
-        self.conn.cursor().execute('INSERT INTO buffer(date_arrival,account_id,subject,content) VALUES (?, ?, ?, ?)', (infos['date'], ent[0], infos['subject'], infos['content']))
+
+        user_id, user_name = ent
+        subject_stripped = infos['subject'].replace("Re: ", "")
+        thread_id = self.search_threads(subject_stripped)
+
+        if thread_id==-1:
+            thread_id = self.add_new_thread(subject_stripped, infos['date'], infos['priority'])
+
+        self.conn.cursor().execute('INSERT INTO buffer(date_arrival,account_id,subject,thread_id,content) VALUES (?, ?, ?, ?, ?)', (infos['date'], user_id, infos['subject'], thread_id, infos['content']))
         self.conn.commit()
-        print '=> User "%s" (id=%i) sent a mail on %s' % (ent[1], ent[0], infos['date'])
+        print '=> User "%s" (id=%i) sent a mail on %s' % (user_name, user_id, infos['date'])
         return True
 
     def add_user(self, infos):
         if 'email' not in infos: return False
         if 'name' not in infos: return False
+        if 'password' not in infos: infos['password'] = ''
         c = self.conn.cursor()
         c.execute('SELECT id,name FROM user WHERE email="%s"' % infos['email'])
         ent = c.fetchone()
         if ent==None or len(ent)==0: # user is not yet in the database
             if 'max_priority' in infos:
-                self.conn.cursor().execute('''INSERT INTO user(email,name,max_priority) VALUES (?, ?, ?)''', (infos['email'], infos['name'], infos['max_priority']))
+                self.conn.cursor().execute('''INSERT INTO user(email,name,password,max_priority) VALUES (?, ?, ?, ?)''', (infos['email'], infos['name'], infos['password'], infos['max_priority']))
             else:
-                self.conn.cursor().execute('''INSERT INTO user(email,name) VALUES (?, ?)''', (infos['email'], infos['name']))
+                self.conn.cursor().execute('''INSERT INTO user(email,name,password) VALUES (?, ?, ?)''', (infos['email'], infos['name'], infos['password']))
             self.conn.commit()
             print '=> User "%s" with e-mail address "%s" was successfully added to the database!' % (infos['name'], infos['email'])
             return True
@@ -89,13 +101,16 @@ class db:
                                         user.email,
                                         user.name,
                                         buffer.priority,
+                                        buffer.thread_id,
                                         buffer.subject,
                                         buffer.content
                                  FROM buffer,user
                                  WHERE buffer.account_id==user.id'''):
-            mail_id, arrival, email_from, name_from, mail_priority, mail_subject, mail_content = mail
+            mail_id, arrival, email_from, name_from, mail_priority, thread_id, mail_subject, mail_content = mail
             mail_priority = int(mail_priority)
             for account in priorities[mail_priority]:
+                if thread_id in self.get_user_unsubscriptions(account['id']): # user is unregistered from the thread
+                    continue
                 out.append({
                     'id': int(mail_id),
                     'from_email': email_from,
@@ -106,6 +121,12 @@ class db:
                     'subject': mail_subject,
                     'content': mail_content
                 })
+        return out
+
+    def get_user_unsubscriptions(self, user_id):
+        out = []
+        for uns in self.conn.cursor().execute('SELECT thread_id FROM unsubscriptions WHERE account_id=?', (user_id,)):
+            out.append(uns[0])
         return out
 
     def buffer_size(self):
@@ -119,18 +140,14 @@ class db:
     def mark_mail_as_sent(self, mail_id=None):
         if mail_id is None: return False
         c = self.conn.cursor()
-        c.execute('SELECT date_arrival,account_id,priority,subject,content FROM buffer WHERE id=?', (str(mail_id)))
+        c.execute('SELECT date_arrival,account_id,thread_id,priority,subject,content FROM buffer WHERE id=?', (str(mail_id)))
         ent = c.fetchone()
         if ent is None or len(ent)==0:
             return False
         
-        subject_stripped = ent[3].replace("Re: ", "")
-        thread_id = self.search_threads(subject_stripped)
+        date_arrival, account_id, thread_id, priority, subject, content = ent
 
-        if thread_id==-1:
-            thread_id = self.add_new_thread(subject_stripped, ent[0])
-
-        self.conn.cursor().execute('''INSERT INTO mails(thread_id,account_id,priority,content,date_arrival) VALUES (?, ?, ?, ?, ?)''', (thread_id, ent[1], ent[2], ent[4], ent[0]))
+        self.conn.cursor().execute('''INSERT INTO mails(thread_id,account_id,content,date_arrival) VALUES (?, ?, ?, ?)''', (thread_id, account_id, content, date_arrival))
         self.conn.cursor().execute('''DELETE FROM buffer WHERE id=?''', (str(mail_id)))
         self.conn.commit()
         return True
@@ -138,7 +155,7 @@ class db:
     def search_threads(self, subject):
         out_id = -1
         c = self.conn.cursor()
-        search = subject+'%'
+        search = subject
         print '''[search_threads] Looking for threads associated to subject "%s"''' % subject
         c.execute('''SELECT id FROM threads WHERE title LIKE ? ORDER BY date_creation DESC LIMIT 1''', (search,))
         thread_candidate = c.fetchone()
@@ -149,10 +166,10 @@ class db:
             print '[search_threads] Thread "%s" was associated to thread %i already present in the database' % (subject, out_id)
         return out_id
 
-    def add_new_thread(self, subject, date):
-        self.conn.cursor().execute('INSERT INTO threads(title,date_creation) VALUES (?, ?)', (subject, date))
+    def add_new_thread(self, subject, date, priority):
+        self.conn.cursor().execute('INSERT INTO threads(title,date_creation,priority) VALUES (?, ?, ?)', (subject, date, priority))
         self.conn.commit()
-        print '=> New thread created on %s : %s' % (date, subject)
+        print '=> New thread created on %s : %s, with priority %i' % (date, subject, priority)
         return self.conn.cursor().execute('SELECT id FROM threads WHERE title=? AND date_creation=?', (subject, date)).fetchone()[0]
 
     def change_subscription_status(self, infos):
@@ -183,6 +200,7 @@ class db:
                      account_id INTEGER,
                      priority INTEGER DEFAULT 3,
                      subject TEXT,
+                     thread_id INTEGER,
                      content TEXT)''')
         c.execute('''CREATE TABLE user
                     (id INTEGER PRIMARY KEY,
@@ -196,6 +214,7 @@ class db:
         c.execute('''CREATE TABLE threads
                     (id INTEGER PRIMARY KEY,
                      title TEXT,
+                     priority INTEGER DEFAULT 3,
                      date_creation DATETIME)''')
         c.execute('''CREATE TABLE unsubscriptions
                     (id INTEGER PRIMARY KEY,
@@ -205,6 +224,5 @@ class db:
                     (id INTEGER PRIMARY KEY,
                      thread_id INTEGER,
                      account_id INTEGER,
-                     priority INTEGER DEFAULT 3,
                      content TEXT,
                      date_arrival DATETIME)''')

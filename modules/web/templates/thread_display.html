@@ -2,17 +2,27 @@
 {% block content %}
 <h3>{%trans%}List of ongoing threads{%endtrans%}</h3>
 {% for thr in Threads.query.all() %}
-<li /> <b>{{ thr.title }}</b>
+<p>
 {% if Unsubscriptions.query.filter_by(thread_id=thr.id, account_id=current_user.id).first()==None %}
-<a href="/threads/unsubscribe/{{ thr.id }}">&hearts;</a>
+<a href="/threads/unsubscribe/{{ thr.id }}" alt="{%trans%}You are registered to this thread{%endtrans%}">[&hearts; {%trans%}registered{%endtrans%}]</a>
 {% else %}
-<a href="/threads/subscribe/{{ thr.id }}">&#9785;</a>
+<a href="/threads/subscribe/{{ thr.id }}" alt="{%trans%}You are not registered to this thread{%endtrans%}">[&#9785; {%trans%}unregistered{%endtrans%}]</a>
 {% endif %}
+<b>{{ thr.title }}</b>
+{% if thr.priority==3 %}
+&#10136;
+{% elif thr.priority==2 %}
+&#10137;
+{% elif thr.priority==1 %}
+&#10138;
+{% endif %}
+</li>
 <ul>
-  {% for mail in Mails.query.filter_by(thread_id=thr.id) %}
-  <li /> {{ mail.account.name }} &#60;{{ mail.account.email }}&#62; on {{ mail.date_arrival|datetime }}
+  {% for mail in Mails.query.filter_by(thread_id=thr.id).order_by('date_arrival') %}
+  <li /> {{ mail.account.name }} &#60;{{ mail.account.email }}&#62;, <a href="/mail/{{ mail.id }}">{{ mail.date_arrival|datetime }}</a>
   {% endfor %}
 </ul>
+</p>
 {% endfor %}
 <p> <a href="/profile">{%trans%}Back{%endtrans%}</a></p>
 {% endblock %}
