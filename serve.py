@@ -2,7 +2,6 @@ import argparse
 import ConfigParser
 
 from modules.web.auth import create_app
-from modules.dbutil import mails
 
 # Start development web server
 def main(argv):

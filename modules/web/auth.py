@@ -9,7 +9,6 @@ from sqlalchemy import func
 import email
 import html2text
 
-import modules.dbutil.mails
 #from modules.web.db_structure import User, Threads, Unsubscriptions ##FIXME how to implement this ?
 
 def create_app(ConfigClass, test_config=None):                   # For automated tests
