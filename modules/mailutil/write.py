@@ -43,6 +43,7 @@ class write:
         msg = email.parser.Parser().parsestr(content.encode('utf-8'))
         #if self.server_infos['reply_to_address'] is not None:
         #    msg['Reply-to'] = self.server_infos['reply_to_address']
+        #msg['In-Reply-To'] = 
         #FIXME need to figure out whether this is required or not
         self.server.sendmail(email_from, email_to, msg.as_string())
         print "-> E-mail sent from %s to %s" % (email_from, email_to)

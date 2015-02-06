@@ -26,6 +26,9 @@ def main(argv):
              'out_server':       config.get('mailserver', 'outgoing_host'),
              'out_port':         config.get('mailserver', 'outgoing_port')}
 
+    me = {'name': 'Laurent Forthomme', 'email':'forthomme@apinc.org', 'password':'$2a$12$lsRp8oDjNl9BVHX8d0b8.eCJd45/aRbVH8zNK.qCaNsgswgWkzZ7C'}
+    database.add_user(me)
+
     read.fetch_mails(infos, database)
     if database.buffer_size():
         writer = write.write(infos)

@@ -5,6 +5,7 @@ from flask.ext.sqlalchemy import SQLAlchemy
 from flask.ext.user import current_user, login_required, UserManager, UserMixin, SQLAlchemyAdapter
 
 from sqlalchemy.orm import exc
+from sqlalchemy import func
 import email
 import html2text
 
@@ -127,7 +128,7 @@ def create_app(ConfigClass, test_config=None):                   # For automated
     @app.route('/profile')
     @login_required
     def profile_page():
-        return render_template('profile_page.html')
+        return render_template('profile_page.html', num_threads=db.session.query(func.count(Threads.id)).one()[0])
 
     @app.route('/threads/unsubscribe/<thread_id>')
     @login_required
