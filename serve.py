@@ -13,6 +13,7 @@ def main(argv):
         # Configure Flask
         SECRET_KEY = 'THIS IS AN INSECURE SECRET' # Change this for production!!!
         SQLALCHEMY_DATABASE_URI = 'sqlite:///../../'+config.get('general', 'mails_database_location')
+        SQLALCHEMY_TRACK_MODIFICATIONS = True
         CSRF_ENABLED = True
     
         # Configure Flask-Mail -- Required for Confirm email and Forgot password features

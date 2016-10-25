@@ -1,8 +1,8 @@
 from flask import Flask, flash, redirect, render_template, render_template_string, request, url_for
-from flask.ext.babel import Babel, format_datetime, gettext
-from flask.ext.mail import Mail
-from flask.ext.sqlalchemy import SQLAlchemy
-from flask.ext.user import current_user, login_required, UserManager, UserMixin, SQLAlchemyAdapter
+from flask_babel import Babel, format_datetime, gettext
+from flask_mail import Mail
+from flask_sqlalchemy import SQLAlchemy
+from flask_user import current_user, login_required, UserManager, UserMixin, SQLAlchemyAdapter
 
 from sqlalchemy.orm import exc
 from sqlalchemy import func
@@ -42,10 +42,10 @@ def create_app(ConfigClass, test_config=None):                   # For automated
         id = db.Column(db.Integer, primary_key=True)
         active = db.Column(db.Boolean(), nullable=False, default=False)
         email = db.Column(db.String(255), nullable=False, unique=True)
-        name = db.Column(db.String(50), nullable=False, unique=True)
+        name = db.Column(db.String(50), nullable=True, default='')
         max_priority = db.Column(db.Integer, nullable=False, default=3)
         password = db.Column(db.String(255), nullable=False, default='')
-        confirmed_at = db.Column(db.DateTime())
+        confirmed_at = db.Column(db.DateTime(), nullable=True)
         reset_password_token = db.Column(db.String(100), nullable=False, default='')
 
     class Threads(db.Model):
@@ -118,7 +118,7 @@ def create_app(ConfigClass, test_config=None):                   # For automated
     # Display Login page or Profile page
     @app.route('/')
     def home_page():
-        if current_user.is_authenticated():
+        if current_user.is_authenticated:
             return redirect(url_for('profile_page'))
         else:
             return redirect(url_for('user.login'))
